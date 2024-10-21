@@ -1,5 +1,6 @@
 use std::thread::sleep;
 use std::time::Duration;
+use qmetaobject::prelude::*;
 
 use crate::asm::Op;
 use crate::mem::Mem;
@@ -32,8 +33,15 @@ const DEFAULT_FONTSET: [u8; FONTSET_SIZE] = [
     0xF0, 0x80, 0xF0, 0x80, 0x80, // F
 ];
 
-#[derive(Default)]
+#[derive(QObject, Default)]
 pub struct Cpu {
+    // Qt
+    base: qt_base_class!(trait QObject),
+    output: qt_property!(QByteArray; NOTIFY output_changed),
+    output_changed: qt_signal!(),
+    run: qt_method!(fn (&mut self)),
+
+    // other things
     reg: Mem<u8, u8, REG_MAX>,
     stack: Mem<u8, u16, STACK_MAX>,
     ram: Mem<u16, u8, RAM_MAX>,
@@ -45,6 +53,7 @@ pub struct Cpu {
     delay_timer: u8,
     sound_timer: u8,
 }
+
 
 impl Cpu {
     pub fn new() -> Self {
