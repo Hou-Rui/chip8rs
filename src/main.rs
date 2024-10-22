@@ -1,5 +1,5 @@
 mod asm;
-mod cpu;
+mod chip8;
 mod mem;
 
 use qmetaobject::prelude::*;
@@ -9,7 +9,7 @@ qrc!(qml_resources, "qml" {
 });
 
 fn main() {
-    qml_register_type::<cpu::Cpu>(c"Cpu", 1, 0, c"Cpu");
+    qml_register_type::<chip8::Chip8>(c"Chip8", 1, 0, c"Chip8");
     qml_resources();
     let mut engine = QmlEngine::new();
     engine.load_file(QString::from("qrc:/qml/main.qml"));

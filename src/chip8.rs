@@ -1,6 +1,6 @@
 use std::thread::sleep;
 use std::time::Duration;
-use qmetaobject::prelude::*;
+use qmetaobject::{prelude::*, QVariantList};
 
 use crate::asm::Op;
 use crate::mem::Mem;
@@ -34,12 +34,13 @@ const DEFAULT_FONTSET: [u8; FONTSET_SIZE] = [
 ];
 
 #[derive(QObject, Default)]
-pub struct Cpu {
+pub struct Chip8 {
     // Qt
     base: qt_base_class!(trait QObject),
-    output: qt_property!(QByteArray; NOTIFY output_changed),
+    output: qt_property!(QVariantList; NOTIFY output_changed),
     output_changed: qt_signal!(),
     run: qt_method!(fn (&mut self)),
+    test: qt_method!(fn (&mut self)),
 
     // other things
     reg: Mem<u8, u8, REG_MAX>,
@@ -55,15 +56,10 @@ pub struct Cpu {
 }
 
 
-impl Cpu {
-    pub fn new() -> Self {
-        let mut cpu = Self::default();
-        cpu.reset();
-        cpu
-    }
-
+impl Chip8 {
     pub fn reset(&mut self) {
         self.init_ram();
+        self.update_output();
         self.pc = 0x200;
     }
 
@@ -79,6 +75,11 @@ impl Cpu {
         let b2 = self.ram[self.pc + 1];
         self.pc += 2;
         u16::from_ne_bytes([b1, b2])
+    }
+
+    fn update_output(&mut self) {
+        self.output = QVariantList::from_iter(self.video.data);
+        self.output_changed();
     }
 
     fn exec_op(&mut self, op: Op) {
@@ -183,8 +184,13 @@ impl Cpu {
                         self.video[video_index] = sprite_pixel;
                     }
                 }
+                self.update_output();
             }
         }
+    }
+
+    pub fn test(&mut self) {
+        self.reset();
     }
 
     pub fn run(&mut self) {

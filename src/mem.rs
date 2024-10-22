@@ -4,7 +4,7 @@ use std::{
 };
 
 pub struct Mem<K, T, const M: usize> {
-    data: [T; M],
+    pub data: [T; M],
     key_type: PhantomData<K>,
 }
 
