@@ -1,35 +1,86 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
+import Qt.labs.platform
 
 import Chip8
 
 ApplicationWindow {
     id: root
-    width: 640
-    height: 320
+    width: 512
+    height: 300
 	visible: true
     title: "CHIP8"
+	
+	property string loadedFile: ""
 
 	ColumnLayout {
-		Button {
-			text: "Test"
-			onClicked: chip8.test()
+		RowLayout {
+			Button {
+				text: "Load File"
+				onClicked: loadFileDialog.open()
+				FileDialog {
+					id: loadFileDialog
+					onAccepted: {
+						root.loadedFile = root.normalize(file);
+						chip8.load(root.loadedFile);
+					}
+				}
+			}
+			Button {
+				text: "Reset"
+				onClicked: {
+					let wasRunning = runTimer.running;
+					runTimer.running = false;
+					chip8.reset();
+					if (root.loadedFile !== "") {
+						chip8.load(root.loadedFile);
+					}
+					runTimer.running = wasRunning;
+				}
+			}
+			Button {
+				text: runTimer.running ? "Stop" : "Start"
+				onClicked: {
+					if (root.loadedFile === "") {
+						confirmNoFileDialog.visible = true;
+						return;
+					}
+					runTimer.running = !runTimer.running
+				}
+				MessageDialog {
+					id: confirmNoFileDialog
+					text: "No ROM file loaded."
+					informativeText: "Are you sure you want to continue?"
+					buttons: MessageDialog.Yes | MessageDialog.No
+					onAccepted: runTimer.running = !runTimer.running
+				}
+				Timer {
+					id: runTimer
+					interval: 20
+					repeat: true
+					onTriggered: chip8.run()
+				}
+			}
 		}
 
 		Grid {
 			columns: 64
 			rows: 32
 			Repeater {
-				model: chip8.output
-
+				model: chip8.video
 				Rectangle {
+					required property bool modelData
 					width: 8
 					height: 8
-					color: modelData ? "grey" : "white"
+					color: modelData ? "grey" : "black"
 				}
 			}
 		}
+	}
+
+	function normalize(url: string): string {
+		return url.replace(/^file:\/\//i, "");
 	}
 
 	Chip8 {

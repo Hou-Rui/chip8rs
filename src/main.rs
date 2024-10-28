@@ -9,9 +9,9 @@ qrc!(qml_resources, "qml" {
 });
 
 fn main() {
+    let mut engine = QmlEngine::new();
     qml_register_type::<chip8::Chip8>(c"Chip8", 1, 0, c"Chip8");
     qml_resources();
-    let mut engine = QmlEngine::new();
     engine.load_file(QString::from("qrc:/qml/main.qml"));
     engine.exec();
 }

@@ -4,8 +4,14 @@ use std::{
 };
 
 pub struct Mem<K, T, const M: usize> {
-    pub data: [T; M],
+    data: [T; M],
     key_type: PhantomData<K>,
+}
+
+impl<K, T, const M: usize> Mem<K, T, M> {
+    pub fn iter(&self) -> impl Iterator<Item = &T> {
+        self.data.iter()
+    }
 }
 
 impl<K, T: Default + Copy, const M: usize> Default for Mem<K, T, M> {

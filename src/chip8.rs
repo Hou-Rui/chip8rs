@@ -1,6 +1,8 @@
+use qmetaobject::{prelude::*, QVariantList};
+use std::fs;
+use std::path::Path;
 use std::thread::sleep;
 use std::time::Duration;
-use qmetaobject::{prelude::*, QVariantList};
 
 use crate::asm::Op;
 use crate::mem::Mem;
@@ -9,9 +11,13 @@ const RAM_MAX: usize = 4096;
 const REG_MAX: usize = 16;
 const STACK_MAX: usize = 16;
 const KEYPAD_MAX: usize = 16;
+
 const VIDEO_WIDTH: u16 = 64;
 const VIDEO_HEIGHT: u16 = 32;
 const VIDEO_MAX: usize = VIDEO_WIDTH as usize * VIDEO_HEIGHT as usize;
+
+const ADDR_FONT: u16 = 0x050;
+const ADDR_START: u16 = 0x200;
 
 const FONTSET_SIZE: usize = 80;
 const DEFAULT_FONTSET: [u8; FONTSET_SIZE] = [
@@ -37,10 +43,11 @@ const DEFAULT_FONTSET: [u8; FONTSET_SIZE] = [
 pub struct Chip8 {
     // Qt
     base: qt_base_class!(trait QObject),
-    output: qt_property!(QVariantList; NOTIFY output_changed),
-    output_changed: qt_signal!(),
-    run: qt_method!(fn (&mut self)),
-    test: qt_method!(fn (&mut self)),
+    video_property: qt_property!(QVariantList; ALIAS video NOTIFY video_changed),
+    video_changed: qt_signal!(),
+    run: qt_method!(fn(&mut self)),
+    reset: qt_method!(fn(&mut self)),
+    load: qt_method!(fn(&mut self, path: QString)),
 
     // other things
     reg: Mem<u8, u8, REG_MAX>,
@@ -55,18 +62,17 @@ pub struct Chip8 {
     sound_timer: u8,
 }
 
-
 impl Chip8 {
     pub fn reset(&mut self) {
         self.init_ram();
-        self.update_output();
-        self.pc = 0x200;
+        self.update_video();
+        self.pc = ADDR_START;
     }
 
     fn init_ram(&mut self) {
-        const FONT_START_ADDR: u16 = 0x50;
-        for i in 0..FONTSET_SIZE as u16 {
-            self.ram[FONT_START_ADDR + i] = DEFAULT_FONTSET[i as usize];
+        self.ram.clear();
+        for (i, d) in DEFAULT_FONTSET.iter().enumerate() {
+            self.ram[ADDR_FONT + i as u16] = *d;
         }
     }
 
@@ -74,12 +80,12 @@ impl Chip8 {
         let b1 = self.ram[self.pc];
         let b2 = self.ram[self.pc + 1];
         self.pc += 2;
-        u16::from_ne_bytes([b1, b2])
+        u16::from_be_bytes([b1, b2])
     }
 
-    fn update_output(&mut self) {
-        self.output = QVariantList::from_iter(self.video.data);
-        self.output_changed();
+    fn update_video(&mut self) {
+        self.video_property = QVariantList::from_iter(self.video.iter());
+        self.video_changed();
     }
 
     fn exec_op(&mut self, op: Op) {
@@ -169,38 +175,46 @@ impl Chip8 {
                 let offset = self.reg[0x0] as u16;
                 self.pc = addr + offset;
             }
-            //
             Op::DRW { reg1, reg2, size } => {
                 let x = self.reg[reg1] as u16 % VIDEO_WIDTH;
                 let y = self.reg[reg2] as u16 % VIDEO_HEIGHT;
+                self.reg[0xF] = 0;
                 for row in 0..size as u16 {
                     let sprite = self.ram[self.index + row];
                     for col in 0..8 {
-                        let sprite_pixel = sprite & (0x80 >> col) != 0;
-                        let video_index = y + row * VIDEO_WIDTH + x + col;
+                        let sprite_pixel = (sprite & (0x80 >> col)) != 0;
+                        let video_index = (y + row) * VIDEO_WIDTH + x + col;
                         if sprite_pixel && self.video[video_index] {
                             self.reg[0xF] = 1;
                         }
                         self.video[video_index] = sprite_pixel;
                     }
                 }
-                self.update_output();
+                self.update_video();
+            }
+            Op::DATA { data } => {
+                println!("Error: unknown opcode: {:#06x}", data)
             }
         }
     }
 
-    pub fn test(&mut self) {
+    pub fn load(&mut self, path: QString) {
         self.reset();
+        match fs::read(path.to_string()) {
+            Ok(data) => {
+                for (i, d) in data.iter().enumerate() {
+                    self.ram[ADDR_START + i as u16] = *d;
+                }
+            }
+            Err(err) => {
+                println!("Error: failed to read ROM: {:?}", err);
+            }
+        }
     }
 
     pub fn run(&mut self) {
-        loop {
-            let code = self.fetch();
-            match Op::try_from_raw(code) {
-                Ok(op) => self.exec_op(op),
-                Err(code) => println!("Warning: unknown opcode {:?}", code),
-            }
-            sleep(Duration::from_millis(200));
-        }
+        let code = self.fetch();
+        let op = Op::from_raw(code);
+        self.exec_op(op);
     }
 }
