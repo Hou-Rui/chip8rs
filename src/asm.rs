@@ -23,6 +23,8 @@ pub enum Op {
     JPA { addr: u16 },
     RND { reg: u8, value: u8 },
     DRW { reg1: u8, reg2: u8, size: u8 },
+    SKP { reg: u8 },
+    SKNP { reg: u8 },
     DATA { data: u16 },
 }
 
@@ -62,6 +64,14 @@ macro_rules! parse_nxys {
     }};
 }
 
+macro_rules! parse_nxnn {
+    ($op: path, $code: expr) => {{
+        $op {
+            reg: (($code & 0x0F00) >> 8) as u8,
+        }
+    }};
+}
+
 impl Op {
     pub fn from_raw(code: u16) -> Self {
         match code {
@@ -97,6 +107,11 @@ impl Op {
             0xB000..=0xBFFF => parse_naaa!(Self::JPA, code),
             0xC000..=0xCFFF => parse_nxkk!(Self::RND, code),
             0xD000..=0xDFFF => parse_nxys!(Self::DRW, code),
+            0xE000..=0xEFFF => match code & 0x00FF {
+                0x9E => parse_nxnn!(Self::SKP, code),
+                0xA1 => parse_nxnn!(Self::SKNP, code),
+                _ => Self::DATA { data: code }
+            }
             _ => Self::DATA { data: code }
         }
     }

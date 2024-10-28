@@ -199,6 +199,16 @@ impl Chip8 {
             Op::DATA { data } => {
                 println!("Error: unknown opcode: {:#06x}", data)
             }
+            Op::SKP { reg } => {
+                if self.keypad[self.reg[reg]] {
+                    self.pc += 2;
+                }
+            },
+            Op::SKNP { reg } => {
+                if !self.keypad[self.reg[reg]] {
+                    self.pc += 2;
+                }
+            },
         }
     }
 
