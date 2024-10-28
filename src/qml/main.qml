@@ -42,7 +42,7 @@ ApplicationWindow {
 			Button {
 				text: runTimer.running ? "Stop" : "Start"
 				onClicked: {
-					if (root.loadedFile === "") {
+					if (!runTimer.running && root.loadedFile === "") {
 						confirmNoFileDialog.visible = true;
 						return;
 					}
@@ -53,7 +53,7 @@ ApplicationWindow {
 					text: "No ROM file loaded."
 					informativeText: "Are you sure you want to continue?"
 					buttons: MessageDialog.Yes | MessageDialog.No
-					onAccepted: runTimer.running = !runTimer.running
+					onAccepted: runTimer.running = true
 				}
 				Timer {
 					id: runTimer

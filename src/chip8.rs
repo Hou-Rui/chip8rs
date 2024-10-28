@@ -1,4 +1,5 @@
 use qmetaobject::{prelude::*, QVariantList};
+use rand::random;
 use std::fs;
 use std::path::Path;
 use std::thread::sleep;
@@ -168,12 +169,15 @@ impl Chip8 {
                     self.pc += 2;
                 }
             }
-            Op::LDID { addr } => {
+            Op::LDIX { addr } => {
                 self.index = addr;
             }
             Op::JPA { addr } => {
                 let offset = self.reg[0x0] as u16;
                 self.pc = addr + offset;
+            }
+            Op::RND { reg, value } => {
+                self.reg[reg] = random::<u8>() & value;
             }
             Op::DRW { reg1, reg2, size } => {
                 let x = self.reg[reg1] as u16 % VIDEO_WIDTH;

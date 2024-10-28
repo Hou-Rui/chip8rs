@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 qmetaobject = "0.2.10"
+rand = "0.8.5"

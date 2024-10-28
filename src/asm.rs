@@ -19,8 +19,9 @@ pub enum Op {
     SUBN { reg1: u8, reg2: u8 },
     SHL { reg1: u8, reg2: u8 },
     SNE { reg1: u8, reg2: u8 },
-    LDID { addr: u16 },
+    LDIX { addr: u16 },
     JPA { addr: u16 },
+    RND { reg: u8, value: u8 },
     DRW { reg1: u8, reg2: u8, size: u8 },
     DATA { data: u16 },
 }
@@ -92,9 +93,9 @@ impl Op {
                 0x0 => parse_nxyn!(Self::SNE, code),
                 _ => Self::DATA { data: code }
             },
-            0xA000..=0xAFFF => parse_naaa!(Self::LDID, code),
+            0xA000..=0xAFFF => parse_naaa!(Self::LDIX, code),
             0xB000..=0xBFFF => parse_naaa!(Self::JPA, code),
-            //
+            0xC000..=0xCFFF => parse_nxkk!(Self::RND, code),
             0xD000..=0xDFFF => parse_nxys!(Self::DRW, code),
             _ => Self::DATA { data: code }
         }
