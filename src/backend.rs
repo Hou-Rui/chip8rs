@@ -8,11 +8,11 @@ use crate::mem::Mem;
 const RAM_MAX: usize = 4096;
 const REG_MAX: usize = 16;
 const STACK_MAX: usize = 16;
-const KEYPAD_MAX: usize = 16;
+const KRAM_MAX: usize = 16;
 
 const VIDEO_WIDTH: u16 = 64;
 const VIDEO_HEIGHT: u16 = 32;
-const VIDEO_MAX: usize = VIDEO_WIDTH as usize * VIDEO_HEIGHT as usize;
+const VRAM_MAX: usize = VIDEO_WIDTH as usize * VIDEO_HEIGHT as usize;
 
 const ADDR_FONT: u16 = 0x050;
 const ADDR_START: u16 = 0x200;
@@ -39,10 +39,10 @@ const DEFAULT_FONTSET: [u8; FONTSET_MAX] = [
 ];
 
 #[derive(QObject, Default)]
-pub struct Chip8 {
+pub struct Backend {
     // Qt
     base: qt_base_class!(trait QObject),
-    video_property: qt_property!(QVariantList; ALIAS video NOTIFY video_changed),
+    video: qt_property!(QVariantList; READ get_video NOTIFY video_changed),
     video_changed: qt_signal!(),
     cycle: qt_method!(fn(&mut self)),
     reset: qt_method!(fn(&mut self)),
@@ -52,8 +52,8 @@ pub struct Chip8 {
     reg: Mem<u8, u8, REG_MAX>,
     stack: Mem<u8, u16, STACK_MAX>,
     ram: Mem<u16, u8, RAM_MAX>,
-    video: Mem<u16, bool, VIDEO_MAX>,
-    keypad: Mem<u8, bool, KEYPAD_MAX>,
+    vram: Mem<u16, bool, VRAM_MAX>,
+    kram: Mem<u8, bool, KRAM_MAX>,
     pc: u16,
     sp: u8,
     index: u16,
@@ -61,11 +61,11 @@ pub struct Chip8 {
     st: u8,
 }
 
-impl Chip8 {
+impl Backend {
     pub fn reset(&mut self) {
         self.init_ram();
-        self.update_video();
         self.pc = ADDR_START;
+        self.video_changed();
     }
 
     fn init_ram(&mut self) {
@@ -82,15 +82,14 @@ impl Chip8 {
         u16::from_be_bytes([b1, b2])
     }
 
-    fn update_video(&mut self) {
-        self.video_property = QVariantList::from_iter(self.video.iter());
-        self.video_changed();
+    fn get_video(&mut self) -> QVariantList {
+        QVariantList::from_iter(self.vram.iter())
     }
 
     fn exec_op(&mut self, op: Op) {
         match op {
             Op::CLS => {
-                self.video.clear();
+                self.vram.clear();
             }
             Op::RET => {
                 self.sp -= 1;
@@ -148,7 +147,7 @@ impl Chip8 {
                 self.reg[0xF] = if r1 >= r2 { 1 } else { 0 };
             }
             Op::SHR { reg1, reg2 } => {
-                let (r1, r2) = (self.reg[reg1], self.reg[reg2]);
+                let (r1, _) = (self.reg[reg1], self.reg[reg2]);
                 self.reg[reg1] >>= 1;
                 self.reg[0xF] = r1 & 0x1;
                 // todo!("SHR variant using both x and y");
@@ -159,7 +158,7 @@ impl Chip8 {
                 self.reg[0xF] = if r1 <= r2 { 1 } else { 0 };
             }
             Op::SHL { reg1, reg2 } => {
-                let (r1, r2) = (self.reg[reg1], self.reg[reg2]);
+                let (r1, _) = (self.reg[reg1], self.reg[reg2]);
                 self.reg[reg1] <<= 1;
                 self.reg[0xF] = (r1 & 0x80) >> 7;
                 // todo!("SHL variant using both x and y");
@@ -189,22 +188,22 @@ impl Chip8 {
                         let sprite_pixel = (sprite & (0x80 >> col)) != 0;
                         let video_index = (y + row) * VIDEO_WIDTH + x + col;
                         if sprite_pixel {
-                            if self.video[video_index] {
+                            if self.vram[video_index] {
                                 self.reg[0xF] = 1;
                             }
-                            self.video[video_index] ^= true;
+                            self.vram[video_index] ^= true;
                         }
                     }
                 }
-                self.update_video();
+                self.video_changed();
             }
             Op::SKP { reg } => {
-                if self.keypad[self.reg[reg]] {
+                if self.kram[self.reg[reg]] {
                     self.pc += 2;
                 }
             }
             Op::SKNP { reg } => {
-                if !self.keypad[self.reg[reg]] {
+                if !self.kram[self.reg[reg]] {
                     self.pc += 2;
                 }
             }
@@ -212,7 +211,7 @@ impl Chip8 {
                 self.reg[reg] = self.dt;
             }
             Op::LDK { reg } => {
-                match self.keypad.iter().position(|&pressed| pressed) {
+                match self.kram.iter().position(|&pressed| pressed) {
                     Some(i) => self.reg[reg] = i as u8,
                     None => self.pc -= 2,
                 };

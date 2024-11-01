@@ -1,0 +1,26 @@
+import QtQuick.tooling 1.2
+
+Module {
+    Component {
+        name: "Backend"
+        accessSemantics: "reference"
+        prototype: "QObject"
+        isCreatable: true
+        exports: ["chip8.backend/Backend 1.0"]
+        Property {
+            name: "video"
+            type: "QString"
+            read: "video"
+            notify: "videoChanged"
+            isReadonly: true
+            index: 0
+        }
+        Signal { name: "videoChanged" }
+        Method { name: "cycle" }
+        Method { name: "reset" }
+        Method {
+            name: "load"
+            Parameter { name: "path"; type: "QString" }
+        }
+    }
+}

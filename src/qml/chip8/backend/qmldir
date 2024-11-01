@@ -1,0 +1,2 @@
+module chip8.backend
+typeinfo backend.qmltypes

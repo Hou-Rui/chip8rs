@@ -1,89 +1,135 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
 import Qt.labs.platform
 
-import Chip8
+import chip8.backend
 
 ApplicationWindow {
     id: root
-    width: 512
-    height: 300
-	visible: true
-    title: "CHIP8"
+    readonly property int videoWidth: 64
+    readonly property int videoHeight: 32
+    readonly property int pixelSize: 8
+    width: videoWidth * pixelSize
+    minimumWidth: width
+    maximumWidth: width
 
-	property string loadedFile: ""
+    visible: true
+    title: "CHIP 8"
 
-	ColumnLayout {
-		RowLayout {
-			Button {
-				text: "Load File"
-				onClicked: loadFileDialog.open()
-				FileDialog {
-					id: loadFileDialog
-					onAccepted: {
-						root.loadedFile = root.normalize(file);
-						chip8.load(root.loadedFile);
-					}
-				}
-			}
-			Button {
-				text: "Reset"
-				onClicked: {
-					const wasRunning = runTimer.running;
-					runTimer.running = false;
-					chip8.reset();
-					if (root.loadedFile !== "") {
-						chip8.load(root.loadedFile);
-					}
-					runTimer.running = wasRunning;
-				}
-			}
-			Button {
-				text: runTimer.running ? "Stop" : "Start"
-				onClicked: {
-					if (!runTimer.running && root.loadedFile === "") {
-						confirmNoFileDialog.visible = true;
-						return;
-					}
-					runTimer.running = !runTimer.running
-				}
-				MessageDialog {
-					id: confirmNoFileDialog
-					text: "No ROM file loaded."
-					informativeText: "Are you sure you want to continue?"
-					buttons: MessageDialog.Yes | MessageDialog.No
-					onAccepted: runTimer.running = true
-				}
-				Timer {
-					id: runTimer
-					interval: 20
-					repeat: true
-					onTriggered: chip8.cycle()
-				}
-			}
-		}
+    property string loadedFile: ""
 
-		Grid {
-			columns: 64
-			rows: 32
-			Repeater {
-				model: chip8.video
-				Rectangle {
-					required property bool modelData
-					width: 8
-					height: 8
-					color: modelData ? "grey" : "black"
-				}
-			}
-		}
-	}
+    ColumnLayout {
+        anchors.fill: parent
 
-	function normalize(url: string): string {
-		return url.replace(/^file:\/\//i, "");
-	}
+        Grid {
+            columns: root.videoWidth
+            rows: root.videoHeight
+            Repeater {
+                model: backend.video
+                Rectangle {
+                    required property bool modelData
+                    width: root.pixelSize
+                    height: root.pixelSize
+                    color: modelData ? "white" : "black"
+                }
+            }
+        }
 
-	Chip8 {
-		id: chip8
-	}
+        GridLayout {
+            id: buttonLayout
+            rows: 4
+            columns: 5
+            Layout.fillHeight: true
+            Layout.fillWidth: true
+
+            GridButton {
+                Layout.column: 0
+                Layout.row: 0
+                text: "Load File"
+                onClicked: loadFileDialog.open()
+                FileDialog {
+                    id: loadFileDialog
+                    onAccepted: {
+                        root.loadedFile = root.normalize(file);
+                        backend.load(root.loadedFile);
+                    }
+                }
+            }
+
+            GridButton {
+                Layout.column: 0
+                Layout.row: 1
+                text: "Reset"
+                onClicked: {
+                    const wasRunning = runTimer.running;
+                    runTimer.running = false;
+                    backend.reset();
+                    if (root.loadedFile !== "") {
+                        backend.load(root.loadedFile);
+                    }
+                    runTimer.running = wasRunning;
+                }
+            }
+
+            GridButton {
+                Layout.fillHeight: true
+                Layout.fillWidth: true
+                Layout.column: 0
+                Layout.row: 2
+                text: runTimer.running ? "Stop" : "Start"
+                onClicked: {
+                    if (!runTimer.running && root.loadedFile === "") {
+                        confirmNoFileDialog.visible = true;
+                        return;
+                    }
+                    runTimer.running = !runTimer.running;
+                }
+                MessageDialog {
+                    id: confirmNoFileDialog
+                    text: "No ROM file loaded."
+                    informativeText: "Are you sure you want to continue?"
+                    buttons: MessageDialog.Yes | MessageDialog.No
+                    onAccepted: runTimer.running = true
+                }
+                Timer {
+                    id: runTimer
+                    interval: 20
+                    repeat: true
+                    onTriggered: backend.cycle()
+                }
+            }
+
+            Repeater {
+                model: ["1", "2", "3", "C",
+                        "4", "5", "6", "D",
+                        "7", "8", "9", "E",
+                        "A", "0", "B", "F"]
+                GridButton {
+                    required property string modelData
+                    required property int index
+                    text: modelData
+                    Layout.fillHeight: true
+                    Layout.fillWidth: true
+                    Layout.row: 0 + index / 4
+                    Layout.column: 1 + index % 4
+                }
+            }
+        }
+    }
+
+    component GridButton: Button {
+        Layout.fillHeight: true
+        Layout.fillWidth: true
+        Layout.preferredHeight: 20
+    }
+
+    function normalize(url: string): string {
+        return url.replace(/^file:\/\//i, "");
+    }
+
+    Backend {
+        id: backend
+    }
 }

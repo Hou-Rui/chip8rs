@@ -1,5 +1,5 @@
 mod asm;
-mod chip8;
+mod backend;
 mod mem;
 
 use qmetaobject::prelude::*;
@@ -10,7 +10,7 @@ qrc!(qml_resources, "qml" {
 
 fn main() {
     let mut engine = QmlEngine::new();
-    qml_register_type::<chip8::Chip8>(c"Chip8", 1, 0, c"Chip8");
+    qml_register_type::<backend::Backend>(c"chip8.backend", 1, 0, c"Backend");
     qml_resources();
     engine.load_file(QString::from("qrc:/qml/main.qml"));
     engine.exec();
