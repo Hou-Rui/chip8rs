@@ -139,27 +139,29 @@ impl Chip8 {
             }
             Op::ADD { reg1, reg2 } => {
                 let result = self.reg[reg1] as u16 + self.reg[reg2] as u16;
-                self.reg[0xF] = if result > 0xFF { 0 } else { 1 };
                 self.reg[reg1] = result as u8;
+                self.reg[0xF] = if result > 0xFF { 1 } else { 0 };
             }
             Op::SUB { reg1, reg2 } => {
                 let (r1, r2) = (self.reg[reg1], self.reg[reg2]);
-                self.reg[0xF] = if r1 > r2 { 1 } else { 0 };
-                self.reg[reg1] = self.reg[reg1].wrapping_sub(r2);
+                self.reg[reg1] = r1.wrapping_sub(r2);
+                self.reg[0xF] = if r1 >= r2 { 1 } else { 0 };
             }
-            Op::SHR { reg1, .. } => {
-                self.reg[0xF] = self.reg[reg1] & 0x1;
+            Op::SHR { reg1, reg2 } => {
+                let (r1, r2) = (self.reg[reg1], self.reg[reg2]);
                 self.reg[reg1] >>= 1;
+                self.reg[0xF] = r1 & 0x1;
                 // todo!("SHR variant using both x and y");
             }
             Op::SUBN { reg1, reg2 } => {
                 let (r1, r2) = (self.reg[reg1], self.reg[reg2]);
-                self.reg[0xF] = if r1 < r2 { 1 } else { 0 };
                 self.reg[reg1] = r2.wrapping_sub(r1);
+                self.reg[0xF] = if r1 <= r2 { 1 } else { 0 };
             }
-            Op::SHL { reg1, .. } => {
-                self.reg[0xF] = self.reg[reg1] & 0x80;
+            Op::SHL { reg1, reg2 } => {
+                let (r1, r2) = (self.reg[reg1], self.reg[reg2]);
                 self.reg[reg1] <<= 1;
+                self.reg[0xF] = (r1 & 0x80) >> 7;
                 // todo!("SHL variant using both x and y");
             }
             Op::SNE { reg1, reg2 } => {
