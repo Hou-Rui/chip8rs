@@ -59,7 +59,7 @@ ApplicationWindow {
 					id: runTimer
 					interval: 20
 					repeat: true
-					onTriggered: chip8.run()
+					onTriggered: chip8.cycle()
 				}
 			}
 		}

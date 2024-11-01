@@ -44,7 +44,7 @@ pub struct Chip8 {
     base: qt_base_class!(trait QObject),
     video_property: qt_property!(QVariantList; ALIAS video NOTIFY video_changed),
     video_changed: qt_signal!(),
-    run: qt_method!(fn(&mut self)),
+    cycle: qt_method!(fn(&mut self)),
     reset: qt_method!(fn(&mut self)),
     load: qt_method!(fn(&mut self, path: QString)),
 
@@ -123,7 +123,7 @@ impl Chip8 {
                 self.reg[reg] = value;
             }
             Op::ADDI { reg, value } => {
-                self.reg[reg] += value; // natural overflow
+                self.reg[reg] = self.reg[reg].wrapping_add(value);
             }
             Op::LD { reg1, reg2 } => {
                 self.reg[reg1] = self.reg[reg2];
@@ -140,27 +140,27 @@ impl Chip8 {
             Op::ADD { reg1, reg2 } => {
                 let result = self.reg[reg1] as u16 + self.reg[reg2] as u16;
                 self.reg[0xF] = if result > 0xFF { 0 } else { 1 };
-                self.reg[reg1] += result as u8;
+                self.reg[reg1] = result as u8;
             }
             Op::SUB { reg1, reg2 } => {
                 let (r1, r2) = (self.reg[reg1], self.reg[reg2]);
                 self.reg[0xF] = if r1 > r2 { 1 } else { 0 };
-                self.reg[reg1] -= r2;
+                self.reg[reg1] = self.reg[reg1].wrapping_sub(r2);
             }
             Op::SHR { reg1, .. } => {
                 self.reg[0xF] = self.reg[reg1] & 0x1;
                 self.reg[reg1] >>= 1;
-                todo!("SHR variant using both x and y");
+                // todo!("SHR variant using both x and y");
             }
             Op::SUBN { reg1, reg2 } => {
                 let (r1, r2) = (self.reg[reg1], self.reg[reg2]);
                 self.reg[0xF] = if r1 < r2 { 1 } else { 0 };
-                self.reg[reg1] = r2 - r1;
+                self.reg[reg1] = r2.wrapping_sub(r1);
             }
             Op::SHL { reg1, .. } => {
                 self.reg[0xF] = self.reg[reg1] & 0x80;
                 self.reg[reg1] <<= 1;
-                todo!("SHL variant using both x and y");
+                // todo!("SHL variant using both x and y");
             }
             Op::SNE { reg1, reg2 } => {
                 if self.reg[reg1] != self.reg[reg2] {
@@ -186,10 +186,12 @@ impl Chip8 {
                     for col in 0..8 {
                         let sprite_pixel = (sprite & (0x80 >> col)) != 0;
                         let video_index = (y + row) * VIDEO_WIDTH + x + col;
-                        if sprite_pixel && self.video[video_index] {
-                            self.reg[0xF] = 1;
+                        if sprite_pixel {
+                            if self.video[video_index] {
+                                self.reg[0xF] = 1;
+                            }
+                            self.video[video_index] ^= true;
                         }
-                        self.video[video_index] = sprite_pixel;
                     }
                 }
                 self.update_video();
@@ -208,11 +210,10 @@ impl Chip8 {
                 self.reg[reg] = self.dt;
             }
             Op::LDK { reg } => {
-                let mut iter = self.keypad.iter().enumerate();
-                match iter.find(|(_, pressed)| **pressed) {
-                    Some((i, _)) => self.reg[reg] = i as u8,
+                match self.keypad.iter().position(|&pressed| pressed) {
+                    Some(i) => self.reg[reg] = i as u8,
                     None => self.pc -= 2,
-                }
+                };
             }
             Op::LDDR { reg } => {
                 self.dt = self.reg[reg];
@@ -228,19 +229,18 @@ impl Chip8 {
                 self.index = ADDR_FONT + offset;
             }
             Op::LDB { reg } => {
-                let mut v = self.reg[reg];
-                for i in 2..=0 {
-                    self.ram[self.index + i] = v % 10;
-                    v /= 10;
-                }
+                let v = self.reg[reg];
+                self.ram[self.index] = v / 100;
+                self.ram[self.index + 1] = v % 100 / 10;
+                self.ram[self.index + 2] = v % 10;
             }
             Op::LDXR { reg } => {
-                for i in 0..=self.reg[reg] {
+                for i in 0..=reg {
                     self.ram[self.index + i as u16] = self.reg[i];
                 }
             }
             Op::LDRX { reg } => {
-                for i in 0..=self.reg[reg] {
+                for i in 0..=reg {
                     self.reg[i] = self.ram[self.index + i as u16];
                 }
             }
@@ -264,9 +264,14 @@ impl Chip8 {
         }
     }
 
-    pub fn run(&mut self) {
+    pub fn cycle(&mut self) {
         let code = self.fetch();
         let op = Op::from_raw(code);
         self.exec_op(op);
+        for timer in [&mut self.dt, &mut self.st] {
+            if *timer > 0 {
+                *timer -= 1;
+            }
+        }
     }
 }
