@@ -25,6 +25,15 @@ pub enum Op {
     DRW { reg1: u8, reg2: u8, size: u8 },
     SKP { reg: u8 },
     SKNP { reg: u8 },
+    LDRD { reg: u8 },
+    LDK { reg: u8 },
+    LDDR { reg: u8 },
+    LDST { reg: u8 },
+    ADIX { reg: u8 },
+    LDF { reg: u8 },
+    LDB { reg: u8 },
+    LDXR { reg: u8 },
+    LDRX { reg: u8 },
     DATA { data: u16 },
 }
 
@@ -110,6 +119,18 @@ impl Op {
             0xE000..=0xEFFF => match code & 0x00FF {
                 0x9E => parse_nxnn!(Self::SKP, code),
                 0xA1 => parse_nxnn!(Self::SKNP, code),
+                _ => Self::DATA { data: code }
+            }
+            0xF000..=0xFFFF => match code & 0x00FF {
+                0x07 => parse_nxnn!(Self::LDRD, code),
+                0x0A => parse_nxnn!(Self::LDK, code),
+                0x15 => parse_nxnn!(Self::LDDR, code),
+                0x18 => parse_nxnn!(Self::LDST, code),
+                0x1E => parse_nxnn!(Self::ADIX, code),
+                0x29 => parse_nxnn!(Self::LDF, code),
+                0x33 => parse_nxnn!(Self::LDB, code),
+                0x55 => parse_nxnn!(Self::LDXR, code),
+                0x65 => parse_nxnn!(Self::LDRX, code),
                 _ => Self::DATA { data: code }
             }
             _ => Self::DATA { data: code }

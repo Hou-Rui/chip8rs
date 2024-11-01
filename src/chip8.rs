@@ -1,9 +1,6 @@
 use qmetaobject::{prelude::*, QVariantList};
 use rand::random;
 use std::fs;
-use std::path::Path;
-use std::thread::sleep;
-use std::time::Duration;
 
 use crate::asm::Op;
 use crate::mem::Mem;
@@ -20,8 +17,9 @@ const VIDEO_MAX: usize = VIDEO_WIDTH as usize * VIDEO_HEIGHT as usize;
 const ADDR_FONT: u16 = 0x050;
 const ADDR_START: u16 = 0x200;
 
-const FONTSET_SIZE: usize = 80;
-const DEFAULT_FONTSET: [u8; FONTSET_SIZE] = [
+const FONTSET_MAX: usize = 80;
+const FONTSET_SIZE: u16 = 5;
+const DEFAULT_FONTSET: [u8; FONTSET_MAX] = [
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
     0x20, 0x60, 0x20, 0x20, 0x70, // 1
     0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
@@ -59,8 +57,8 @@ pub struct Chip8 {
     pc: u16,
     sp: u8,
     index: u16,
-    delay_timer: u8,
-    sound_timer: u8,
+    dt: u8,
+    st: u8,
 }
 
 impl Chip8 {
@@ -196,19 +194,59 @@ impl Chip8 {
                 }
                 self.update_video();
             }
-            Op::DATA { data } => {
-                println!("Error: unknown opcode: {:#06x}", data)
-            }
             Op::SKP { reg } => {
                 if self.keypad[self.reg[reg]] {
                     self.pc += 2;
                 }
-            },
+            }
             Op::SKNP { reg } => {
                 if !self.keypad[self.reg[reg]] {
                     self.pc += 2;
                 }
-            },
+            }
+            Op::LDRD { reg } => {
+                self.reg[reg] = self.dt;
+            }
+            Op::LDK { reg } => {
+                let mut iter = self.keypad.iter().enumerate();
+                match iter.find(|(_, pressed)| **pressed) {
+                    Some((i, _)) => self.reg[reg] = i as u8,
+                    None => self.pc -= 2,
+                }
+            }
+            Op::LDDR { reg } => {
+                self.dt = self.reg[reg];
+            }
+            Op::LDST { reg } => {
+                self.st = self.reg[reg];
+            }
+            Op::ADIX { reg } => {
+                self.index += self.reg[reg] as u16;
+            }
+            Op::LDF { reg } => {
+                let offset = FONTSET_SIZE * self.reg[reg] as u16;
+                self.index = ADDR_FONT + offset;
+            }
+            Op::LDB { reg } => {
+                let mut v = self.reg[reg];
+                for i in 2..=0 {
+                    self.ram[self.index + i] = v % 10;
+                    v /= 10;
+                }
+            }
+            Op::LDXR { reg } => {
+                for i in 0..=self.reg[reg] {
+                    self.ram[self.index + i as u16] = self.reg[i];
+                }
+            }
+            Op::LDRX { reg } => {
+                for i in 0..=self.reg[reg] {
+                    self.reg[i] = self.ram[self.index + i as u16];
+                }
+            }
+            Op::DATA { data } => {
+                println!("Error: unknown opcode: {:#06x}", data)
+            }
         }
     }
 

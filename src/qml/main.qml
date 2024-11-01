@@ -11,7 +11,7 @@ ApplicationWindow {
     height: 300
 	visible: true
     title: "CHIP8"
-	
+
 	property string loadedFile: ""
 
 	ColumnLayout {
@@ -30,7 +30,7 @@ ApplicationWindow {
 			Button {
 				text: "Reset"
 				onClicked: {
-					let wasRunning = runTimer.running;
+					const wasRunning = runTimer.running;
 					runTimer.running = false;
 					chip8.reset();
 					if (root.loadedFile !== "") {
