@@ -47,6 +47,8 @@ pub struct Backend {
     cycle: qt_method!(fn(&mut self)),
     reset: qt_method!(fn(&mut self)),
     load: qt_method!(fn(&mut self, path: QString)),
+    key_press: qt_method!(fn(&mut self, key: u8)),
+    key_release: qt_method!(fn(&mut self, key: u8)),
 
     // other things
     reg: Mem<u8, u8, REG_MAX>,
@@ -64,6 +66,7 @@ pub struct Backend {
 impl Backend {
     pub fn reset(&mut self) {
         self.init_ram();
+        self.vram.clear();
         self.pc = ADDR_START;
         self.video_changed();
     }
@@ -84,6 +87,14 @@ impl Backend {
 
     fn get_video(&mut self) -> QVariantList {
         QVariantList::from_iter(self.vram.iter())
+    }
+
+    fn key_press(&mut self, key: u8) {
+        self.kram[key] = true;
+    }
+
+    fn key_release(&mut self, key: u8) {
+        self.kram[key] = false;
     }
 
     fn exec_op(&mut self, op: Op) {

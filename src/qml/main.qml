@@ -95,13 +95,14 @@ ApplicationWindow {
                 }
                 Timer {
                     id: runTimer
-                    interval: 20
+                    interval: 16
                     repeat: true
                     onTriggered: backend.cycle()
                 }
             }
 
             Repeater {
+                id: keypadButtons
                 model: ["1", "2", "3", "C",
                         "4", "5", "6", "D",
                         "7", "8", "9", "E",
@@ -109,11 +110,14 @@ ApplicationWindow {
                 GridButton {
                     required property string modelData
                     required property int index
+                    readonly property int value: parseInt(modelData, 16)
                     text: modelData
                     Layout.fillHeight: true
                     Layout.fillWidth: true
                     Layout.row: 0 + index / 4
                     Layout.column: 1 + index % 4
+                    onPressed: backend.key_press(value)
+                    onReleased: backend.key_release(value)
                 }
             }
         }

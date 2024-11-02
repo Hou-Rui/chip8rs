@@ -9,7 +9,7 @@ Module {
         exports: ["chip8.backend/Backend 1.0"]
         Property {
             name: "video"
-            type: "QString"
+            type: "QVariantList"
             read: "video"
             notify: "videoChanged"
             isReadonly: true
@@ -21,6 +21,14 @@ Module {
         Method {
             name: "load"
             Parameter { name: "path"; type: "QString" }
+        }
+        Method {
+            name: "key_press"
+            Parameter { name: "key"; type: "int" }
+        }
+        Method {
+            name: "key_release"
+            Parameter { name: "key"; type: "int" }
         }
     }
 }
